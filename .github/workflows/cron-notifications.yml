@@ -1,0 +1,15 @@
+name: Check Notifications Every Minute
+on:
+  schedule:
+    - cron: '* * * * *'  # Every minute
+  workflow_dispatch:  # Allows manual triggers
+
+jobs:
+  check-notifications:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for study block notifications
+        run: |
+          curl -X GET "${{ secrets.DEPLOYMENT_URL }}/api/check-notifications" \
+               -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+               -H "Content-Type: application/json"
