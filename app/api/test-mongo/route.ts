@@ -10,7 +10,8 @@ export async function GET() {
     await db.admin().ping()
     
     return NextResponse.json({ message: 'MongoDB connected!' })
-  } catch (error) {
+  } catch {
+    // Remove unused 'error' parameter
     return NextResponse.json({ error: 'Connection failed' }, { status: 500 })
   }
 }

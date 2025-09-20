@@ -35,19 +35,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid duration (1-480 minutes)' }, { status: 400 })
     }
 
-    // Create start and end times
-    const startDateTime = new Date(`${date}T${startTime}:00`)
-    const endDateTime = new Date(startDateTime.getTime() + finalDuration * 60 * 1000)
+    // CREATE PROPER IST DATETIME
+    // Parse the date and time components
+    const [year, month, day] = date.split('-').map(Number)
+    const [hours, minutes] = startTime.split(':').map(Number)
     
-    // Create notification time (10 minutes before)
+    // Create date in IST (UTC+5:30) by manually offsetting
+    const istOffset = 5.5 * 60 * 60 * 1000 // IST is UTC+5:30 in milliseconds
+    
+    // Create UTC datetime first
+    const utcDateTime = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
+    
+    // Subtract IST offset to get the correct local time
+    const startDateTime = new Date(utcDateTime.getTime() - istOffset)
+    
+    // Calculate end and notification times
+    const endDateTime = new Date(startDateTime.getTime() + finalDuration * 60 * 1000)
     const notificationTime = new Date(startDateTime.getTime() - 10 * 60 * 1000)
 
     // Check if it's at least 10 minutes in future
-    if (notificationTime <= new Date()) {
+    const now = new Date()
+    if (notificationTime <= now) {
       return NextResponse.json({ 
         error: 'Study block must be scheduled at least 10 minutes in advance' 
       }, { status: 400 })
     }
+
+    console.log('📅 IST Timezone Handling:')
+    console.log('   Input Date:', date)
+    console.log('   Input Time:', startTime)
+    console.log('   Parsed Components:', { year, month: month-1, day, hours, minutes })
+    console.log('   UTC DateTime:', utcDateTime.toISOString())
+    console.log('   IST Offset (ms):', istOffset)
+    console.log('   Final Start Time (UTC):', startDateTime.toISOString())
+    console.log('   Final Start Time (IST):', startDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }))
+    console.log('   Notification Time:', notificationTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }))
 
     // Connect to MongoDB
     const client = await connectToMongoDB()
@@ -57,17 +79,14 @@ export async function POST(request: NextRequest) {
     const conflictingBlock = await db.collection('study_blocks').findOne({
       user_id: user.id,
       $or: [
-        // New block starts during existing block
         {
           start_time: { $lte: startDateTime },
           end_time: { $gt: startDateTime }
         },
-        // New block ends during existing block
         {
           start_time: { $lt: endDateTime },
           end_time: { $gte: endDateTime }
         },
-        // New block completely contains existing block
         {
           start_time: { $gte: startDateTime },
           end_time: { $lte: endDateTime }
@@ -76,7 +95,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (conflictingBlock) {
-      const conflictTime = new Date(conflictingBlock.start_time).toLocaleString()
+      const conflictTime = new Date(conflictingBlock.start_time).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
       return NextResponse.json({ 
         error: `Time conflict! You have "${conflictingBlock.subject}" scheduled at ${conflictTime}` 
       }, { status: 409 })
@@ -100,13 +119,17 @@ export async function POST(request: NextRequest) {
     const result = await db.collection('study_blocks').insertOne(studyBlock)
 
     console.log(`✅ Study block created: ${subject} for ${user.email}`)
-    console.log(`📅 Scheduled: ${startDateTime.toLocaleString()}`)
-    console.log(`⏰ Notification: ${notificationTime.toLocaleString()}`)
-
     return NextResponse.json({ 
       success: true, 
       id: result.insertedId,
-      message: 'Study block created successfully!' 
+      message: 'Study block created successfully!',
+      debug: {
+        inputDate: date,
+        inputTime: startTime,
+        startTimeUTC: startDateTime.toISOString(),
+        startTimeIST: startDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        notificationTimeIST: notificationTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+      }
     })
 
   } catch (error) {
@@ -114,6 +137,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
+
 
 export async function GET(request: NextRequest) {
   try {

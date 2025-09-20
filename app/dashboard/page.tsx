@@ -101,6 +101,15 @@ export default function Dashboard() {
         return
       }
 
+      console.log('Creating study block with:', {
+        subject,
+        duration,
+        date,
+        startTime,
+        customDuration,
+        useCustomTime
+      })
+
       const response = await fetch('/api/study-blocks', {
         method: 'POST',
         headers: {
@@ -118,6 +127,7 @@ export default function Dashboard() {
       })
 
       const data = await response.json()
+      console.log('API Response:', data)
 
       if (response.ok) {
         alert('Study block created! You will get email reminder 10 minutes before.')
@@ -183,6 +193,22 @@ export default function Dashboard() {
       router.push('/login')
     }
   }
+
+  // Format display time properly
+// Format display time properly for IST
+const formatDateTime = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
 
   if (loading) {
     return (
@@ -379,7 +405,7 @@ export default function Dashboard() {
                     <div>
                       <h3 className="font-semibold text-gray-900">{block.subject}</h3>
                       <p className="text-gray-600 text-sm">
-                        {block.duration} minutes • {new Date(block.start_time).toLocaleString()}
+                        {block.duration} minutes • {formatDateTime(block.start_time)}
                       </p>
                       {block.notification_sent && (
                         <p className="text-green-600 text-xs">✅ Notification sent</p>
@@ -388,9 +414,7 @@ export default function Dashboard() {
                   </div>
                   
                   <div className="flex items-center space-x-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">
-                      {block.status}
-                    </span>
+                    
                     <button
                       onClick={() => deleteStudyBlock(block._id)}
                       className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50"
@@ -398,7 +422,7 @@ export default function Dashboard() {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+      </svg>
                     </button>
                   </div>
                 </div>
