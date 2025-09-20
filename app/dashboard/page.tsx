@@ -16,6 +16,7 @@ interface StudyBlock {
   end_time: string
   status: string
   created_at: string
+  notification_sent?: boolean
 }
 
 export default function Dashboard() {
@@ -140,6 +141,39 @@ export default function Dashboard() {
       alert('Something went wrong!')
     } finally {
       setCreating(false)
+    }
+  }
+
+  // Delete study block
+  const deleteStudyBlock = async (blockId: string) => {
+    if (!confirm('Are you sure you want to delete this study block?')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/study-blocks', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ blockId })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert('Study block deleted!')
+        loadStudyBlocks() // Refresh the list
+      } else {
+        alert(data.error || 'Failed to delete study block')
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('Failed to delete study block')
     }
   }
 
@@ -347,6 +381,9 @@ export default function Dashboard() {
                       <p className="text-gray-600 text-sm">
                         {block.duration} minutes • {new Date(block.start_time).toLocaleString()}
                       </p>
+                      {block.notification_sent && (
+                        <p className="text-green-600 text-xs">✅ Notification sent</p>
+                      )}
                     </div>
                   </div>
                   
@@ -354,6 +391,15 @@ export default function Dashboard() {
                     <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">
                       {block.status}
                     </span>
+                    <button
+                      onClick={() => deleteStudyBlock(block._id)}
+                      className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50"
+                      title="Delete study block"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
